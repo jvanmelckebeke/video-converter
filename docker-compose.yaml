@@ -1,0 +1,27 @@
+x-logging: &logging
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+
+services:
+  video_optimizer:
+    <<: *logging
+    restart: unless-stopped
+    container_name: video-optimizer
+    user: 1000:1000
+    build: .
+    # Mount your current directory so the container sees your video files.
+    volumes:
+      - .:/app
+    working_dir: /app
+    environment:
+      - OPTIMIZER_FFMPEG_PRESET=veryfast
+      - OPTIMIZER_SHORTEN_FILE_PATHS=0
+    security_opt:
+      - seccomp:unconfined
+    deploy:
+      resources:
+        limits:
+          # cpus: "30.0" # Limit to 2 CPUs (adjust as needed)
+          memory: 100G # Limit memory usage to 1GB (adjust as needed)
