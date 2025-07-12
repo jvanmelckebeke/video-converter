@@ -21,7 +21,7 @@ class VideoProcessor:
         self.file_manager = file_manager
 
     def _build_ffmpeg_command(self, input_path: str, output_path: str) -> list:
-        """ ... (rest of _build_ffmpeg_command method is the same) ... """
+        """Build FFmpeg command with conditional 1080p downscaling."""
         command = [
             "ffmpeg",
             "-hide_banner",
@@ -32,11 +32,30 @@ class VideoProcessor:
             "-c:v", self.config.FFMPEG_VIDEO_CODEC,
             "-preset", self.config.FFMPEG_PRESET,
             "-crf", self.config.FFMPEG_CRF,
+        ]
+        
+        # Check if video needs downscaling to 1080p
+        resolution = self._get_video_resolution(input_path)
+        if resolution:
+            width, height = resolution
+            logging.info(f"Video resolution: {width}x{height} for '{Utils.shorten_filepath(input_path, self.config.SOURCE_ROOT)}'")
+            
+            if height > 1080:
+                logging.info(f"Downscaling from {height}p to 1080p for '{Utils.shorten_filepath(input_path, self.config.SOURCE_ROOT)}'")
+                command.extend(["-vf", "scale=-2:1080"])
+            else:
+                logging.info(f"Keeping original resolution ({height}p) for '{Utils.shorten_filepath(input_path, self.config.SOURCE_ROOT)}'")
+        else:
+            logging.warning(f"Could not determine resolution for '{Utils.shorten_filepath(input_path, self.config.SOURCE_ROOT)}', proceeding without scaling")
+        
+        # Add audio and output settings
+        command.extend([
             "-c:a", self.config.FFMPEG_AUDIO_CODEC,
             "-b:a", self.config.FFMPEG_AUDIO_BITRATE,
             "-movflags", self.config.FFMPEG_MOVFLAGS,
             output_path,
-        ]
+        ])
+        
         return command
 
     def _handle_ffmpeg_error(self, input_path: str, temp_output_path: str, rel_path: str, retcode: int) -> None:
@@ -52,6 +71,41 @@ class VideoProcessor:
         if os.path.exists(temp_output_path):
             os.remove(temp_output_path)
         self.file_manager.move_to_errored(input_path, rel_path)  # Move ORIGINAL to errored
+
+    def _get_video_resolution(self, input_path: str) -> tuple[int, int] or None:
+        """
+        Uses ffprobe to get the width and height of a video file.
+
+        Args:
+            input_path (str): Path to the input video file.
+
+        Returns:
+            tuple[int, int] or None: (width, height) or None if ffprobe fails.
+        """
+        try:
+            command = [
+                "ffprobe",
+                "-v", "error",
+                "-select_streams", "v:0",
+                "-show_entries", "stream=width,height",
+                "-of", "csv=p=0",
+                input_path
+            ]
+            result = subprocess.run(command, capture_output=True, text=True, check=True)
+            dimensions = result.stdout.strip().split(',')
+            if len(dimensions) == 2 and dimensions[0].isdigit() and dimensions[1].isdigit():
+                width, height = int(dimensions[0]), int(dimensions[1])
+                return (width, height)
+            else:
+                logging.warning(f"ffprobe output for dimensions was unexpected: '{result.stdout.strip()}' for '{Utils.shorten_filepath(input_path, self.config.SOURCE_ROOT)}'")
+                return None
+
+        except subprocess.CalledProcessError as e:
+            logging.error(f"ffprobe command failed for '{Utils.shorten_filepath(input_path, self.config.SOURCE_ROOT)}': {e}")
+            return None
+        except FileNotFoundError:
+            logging.error("ffprobe not found. Make sure it's installed and in your PATH.")
+            return None
 
     def _get_total_frames(self, input_path: str) -> int or None:
         """
