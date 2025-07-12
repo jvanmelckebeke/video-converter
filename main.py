@@ -75,6 +75,7 @@ def main():
 
     processed_files = set()
     file_queue = deque()
+    queued_files = set()  # Track files currently in queue
 
     # Global counters
     total_success = 0
@@ -99,13 +100,15 @@ def main():
                 # Start new batch: reset progress bar and populate queue
                 logging.info(f"Found {len(new_files)} new video files to process.")
                 file_queue.extend(new_files)
-                pbar.reset()
+                queued_files.update(new_files)  # Track queued files
+                pbar.n = 0  # Reset position only
                 pbar.total = len(file_queue)
                 pbar.refresh()
             
             # Process files from queue
             while file_queue:
                 current_file = file_queue.popleft()
+                queued_files.discard(current_file)  # Remove from queued tracking
                 
                 # Process current file
                 success, error, skipped, size_issue = process_file_from_queue(
@@ -128,10 +131,13 @@ def main():
                 pbar.update(1)
                 
                 # Check for new files after processing each file
-                new_files = discover_new_files(file_manager, processed_files)
+                all_discovered = discover_new_files(file_manager, processed_files)
+                # Filter out files already in queue or processed
+                new_files = [f for f in all_discovered if f not in queued_files and f not in processed_files]
                 if new_files:
                     logging.info(f"Found {len(new_files)} additional files during processing.")
                     file_queue.extend(new_files)
+                    queued_files.update(new_files)  # Track new queued files
                     pbar.total += len(new_files)
                     pbar.refresh()
                     
