@@ -38,15 +38,15 @@ class VideoProcessor:
         resolution = self._get_video_resolution(input_path)
         if resolution:
             width, height = resolution
-            logging.info(f"Video resolution: {width}x{height} for '{Utils.shorten_filepath(input_path, self.config.SOURCE_ROOT)}'")
+            logging.info(f"Video resolution: {width}x{height} for '{Utils.shorten_filepath(input_path, self.config.SOURCE_ROOT, self.config.SHORTEN_FILE_PATHS)}'")
             
             if height > 1080:
-                logging.info(f"Downscaling from {height}p to 1080p for '{Utils.shorten_filepath(input_path, self.config.SOURCE_ROOT)}'")
+                logging.info(f"Downscaling from {height}p to 1080p for '{Utils.shorten_filepath(input_path, self.config.SOURCE_ROOT, self.config.SHORTEN_FILE_PATHS)}'")
                 command.extend(["-vf", "scale=-2:1080"])
             else:
-                logging.info(f"Keeping original resolution ({height}p) for '{Utils.shorten_filepath(input_path, self.config.SOURCE_ROOT)}'")
+                logging.info(f"Keeping original resolution ({height}p) for '{Utils.shorten_filepath(input_path, self.config.SOURCE_ROOT, self.config.SHORTEN_FILE_PATHS)}'")
         else:
-            logging.warning(f"Could not determine resolution for '{Utils.shorten_filepath(input_path, self.config.SOURCE_ROOT)}', proceeding without scaling")
+            logging.warning(f"Could not determine resolution for '{Utils.shorten_filepath(input_path, self.config.SOURCE_ROOT, self.config.SHORTEN_FILE_PATHS)}', proceeding without scaling")
         
         # Add audio and output settings
         command.extend([
@@ -60,14 +60,14 @@ class VideoProcessor:
 
     def _handle_ffmpeg_error(self, input_path: str, temp_output_path: str, rel_path: str, retcode: int) -> None:
         """ ... (rest of _handle_ffmpeg_error method is the same) ... """
-        logging.error(f"FFmpeg returned non-zero exit code: {retcode} for '{Utils.shorten_filepath(input_path, self.config.SOURCE_ROOT)}'")
+        logging.error(f"FFmpeg returned non-zero exit code: {retcode} for '{Utils.shorten_filepath(input_path, self.config.SOURCE_ROOT, self.config.SHORTEN_FILE_PATHS)}'")
         if os.path.exists(temp_output_path):
             os.remove(temp_output_path)
         self.file_manager.move_to_errored(input_path, rel_path)  # Move ORIGINAL to errored
 
     def _handle_unexpected_error(self, input_path: str, temp_output_path: str, rel_path: str, exception: Exception) -> None:
         """ ... (rest of _handle_unexpected_error method is the same) ... """
-        logging.exception(f"An unexpected error occurred while processing '{Utils.shorten_filepath(input_path, self.config.SOURCE_ROOT)}'")
+        logging.exception(f"An unexpected error occurred while processing '{Utils.shorten_filepath(input_path, self.config.SOURCE_ROOT, self.config.SHORTEN_FILE_PATHS)}'")
         if os.path.exists(temp_output_path):
             os.remove(temp_output_path)
         self.file_manager.move_to_errored(input_path, rel_path)  # Move ORIGINAL to errored
@@ -97,11 +97,11 @@ class VideoProcessor:
                 width, height = int(dimensions[0]), int(dimensions[1])
                 return (width, height)
             else:
-                logging.warning(f"ffprobe output for dimensions was unexpected: '{result.stdout.strip()}' for '{Utils.shorten_filepath(input_path, self.config.SOURCE_ROOT)}'")
+                logging.warning(f"ffprobe output for dimensions was unexpected: '{result.stdout.strip()}' for '{Utils.shorten_filepath(input_path, self.config.SOURCE_ROOT, self.config.SHORTEN_FILE_PATHS)}'")
                 return None
 
         except subprocess.CalledProcessError as e:
-            logging.error(f"ffprobe command failed for '{Utils.shorten_filepath(input_path, self.config.SOURCE_ROOT)}': {e}")
+            logging.error(f"ffprobe command failed for '{Utils.shorten_filepath(input_path, self.config.SOURCE_ROOT, self.config.SHORTEN_FILE_PATHS)}': {e}")
             return None
         except FileNotFoundError:
             logging.error("ffprobe not found. Make sure it's installed and in your PATH.")
@@ -131,11 +131,11 @@ class VideoProcessor:
             if frames_str.isdigit():
                 return int(frames_str)
             else:
-                logging.warning(f"ffprobe output for frame count was not a digit: '{frames_str}' for '{Utils.shorten_filepath(input_path, self.config.SOURCE_ROOT)}'. Using dynamic progress.")
+                logging.warning(f"ffprobe output for frame count was not a digit: '{frames_str}' for '{Utils.shorten_filepath(input_path, self.config.SOURCE_ROOT, self.config.SHORTEN_FILE_PATHS)}'. Using dynamic progress.")
                 return None # Indicate frames couldn't be reliably determined.
 
         except subprocess.CalledProcessError as e:
-            logging.error(f"ffprobe command failed for '{Utils.shorten_filepath(input_path, self.config.SOURCE_ROOT)}': {e}")
+            logging.error(f"ffprobe command failed for '{Utils.shorten_filepath(input_path, self.config.SOURCE_ROOT, self.config.SHORTEN_FILE_PATHS)}': {e}")
             return None
         except FileNotFoundError:
             logging.error("ffprobe not found. Make sure it's installed and in your PATH.")
@@ -159,7 +159,7 @@ class VideoProcessor:
         os.makedirs(os.path.dirname(final_output_path), exist_ok=True)  # Ensure output dir exists for final optimized file
 
         command = self._build_ffmpeg_command(input_path, temp_output_path)
-        shorter_input_path = Utils.shorten_filepath(input_path, self.config.SOURCE_ROOT)
+        shorter_input_path = Utils.shorten_filepath(input_path, self.config.SOURCE_ROOT, self.config.SHORTEN_FILE_PATHS)
 
         # Regex to parse frame= from ffmpeg output
         frame_regex = re.compile(r"frame=\s*(\d+)")
@@ -178,7 +178,7 @@ class VideoProcessor:
         )
 
         try:
-            logging.info(f"Processing '{shorter_input_path}' -> '{Utils.shorten_filepath(final_output_path, self.config.SOURCE_ROOT)}'")  # Log output path, not temp path
+            logging.info(f"Processing '{shorter_input_path}' -> '{Utils.shorten_filepath(final_output_path, self.config.SOURCE_ROOT, self.config.SHORTEN_FILE_PATHS)}'")  # Log output path, not temp path
             process = subprocess.Popen(
                 command,
                 stdout=subprocess.PIPE,
@@ -213,7 +213,7 @@ class VideoProcessor:
             os.rename(temp_output_path, final_output_path)  # Optimized file moved to final output
 
             if self.file_manager.compare_file_sizes(input_path, final_output_path):
-                logging.warning(f"Original file '{Utils.shorten_filepath(input_path, self.config.SOURCE_ROOT)}' is smaller than optimized file '{Utils.shorten_filepath(final_output_path, self.config.SOURCE_ROOT)}'. Moving files.")
+                logging.warning(f"Original file '{Utils.shorten_filepath(input_path, self.config.SOURCE_ROOT, self.config.SHORTEN_FILE_PATHS)}' is smaller than optimized file '{Utils.shorten_filepath(final_output_path, self.config.SOURCE_ROOT, self.config.SHORTEN_FILE_PATHS)}'. Moving files.")
                 self.file_manager.move_to_optimized_bad(final_output_path, base + '.mp4')  # Move OPTIMIZED to bad (keep .mp4 extension)
                 self.file_manager.move_to_optimized_original(input_path, rel_path)  # Move ORIGINAL to optimized-original (keep original extension)
             else:

@@ -1,28 +1,33 @@
 import os
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from video_optimizer.config import Configuration
+if TYPE_CHECKING:
+    from video_optimizer.config import Configuration
 
 
 class Utils:
     """Utility functions for file path manipulation and checks."""
 
     @staticmethod
-    def is_video_file(filepath: str, config: Configuration) -> bool:
+    def is_video_file(filepath: str, config: "Configuration") -> bool:
         """Checks if a file has a video extension from the configured list."""
         return Path(filepath).suffix.lower() in config.VIDEO_EXTENSIONS
 
     @staticmethod
-    def shorten_filepath(filepath: str, source_root: str) -> str:
+    def shorten_filepath(filepath: str, source_root: str, shorten: bool = True) -> str:
         """
         Generates a shorter name for the file path, relative to the source root.
+
+        Args:
+            filepath: The full file path to shorten.
+            source_root: The root directory to make the path relative to.
+            shorten: Whether to apply shortening. Defaults to True.
 
         Example:
             "./to-convert/abra/cadabra/foobarwithalongname.mp4" -> "a/cadabra/foob...name.mp4"
         """
-        config = Configuration()
-
-        if not config.SHORTEN_FILE_PATHS:
+        if not shorten:
             return filepath
 
         filepath = filepath.replace(source_root, "").lstrip(os.sep)

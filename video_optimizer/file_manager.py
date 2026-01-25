@@ -31,7 +31,7 @@ class FileManager:
         os.makedirs(os.path.dirname(dest_path), exist_ok=True)
         try:
             shutil.move(source_path, dest_path)
-            logging.info(f"Moved '{Utils.shorten_filepath(source_path, self.config.SOURCE_ROOT)}' to '{Utils.shorten_filepath(dest_path, self.config.SOURCE_ROOT)}'")
+            logging.info(f"Moved '{Utils.shorten_filepath(source_path, self.config.SOURCE_ROOT, self.config.SHORTEN_FILE_PATHS)}' to '{Utils.shorten_filepath(dest_path, self.config.SOURCE_ROOT, self.config.SHORTEN_FILE_PATHS)}'")
         except Exception as e:
             logging.error(f"Failed to move '{source_path}' to '{dest_path}': {e}")
             raise

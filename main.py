@@ -39,7 +39,7 @@ def process_file(input_path, file_manager, video_processor, config):
     skip_reason = file_manager.check_skip_directory(input_path, rel_path)
     if skip_reason:
         logging.info(
-            f"Skipped: '{Utils.shorten_filepath(input_path, config.SOURCE_ROOT)}' ({skip_reason})")
+            f"Skipped: '{Utils.shorten_filepath(input_path, config.SOURCE_ROOT, config.SHORTEN_FILE_PATHS)}' ({skip_reason})")
         return 0, 0, 1, 0  # skipped
 
     result = video_processor.process_video(input_path)
