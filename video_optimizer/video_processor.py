@@ -2,6 +2,7 @@ import os
 import subprocess
 import logging
 import re  # For regular expressions to parse FFmpeg output
+from typing import Optional
 from tqdm_loggable.auto import tqdm
 
 from video_optimizer.config import Configuration
@@ -72,7 +73,7 @@ class VideoProcessor:
             os.remove(temp_output_path)
         self.file_manager.move_to_errored(input_path, rel_path)  # Move ORIGINAL to errored
 
-    def _get_video_resolution(self, input_path: str) -> tuple[int, int] or None:
+    def _get_video_resolution(self, input_path: str) -> Optional[tuple[int, int]]:
         """
         Uses ffprobe to get the width and height of a video file.
 
@@ -80,7 +81,7 @@ class VideoProcessor:
             input_path (str): Path to the input video file.
 
         Returns:
-            tuple[int, int] or None: (width, height) or None if ffprobe fails.
+            Optional[tuple[int, int]]: (width, height) or None if ffprobe fails.
         """
         try:
             command = [
@@ -107,7 +108,7 @@ class VideoProcessor:
             logging.error("ffprobe not found. Make sure it's installed and in your PATH.")
             return None
 
-    def _get_total_frames(self, input_path: str) -> int or None:
+    def _get_total_frames(self, input_path: str) -> Optional[int]:
         """
         Uses ffprobe to get the total number of frames in a video file.
 
@@ -115,7 +116,7 @@ class VideoProcessor:
             input_path (str): Path to the input video file.
 
         Returns:
-            int or None: Total number of frames, or None if ffprobe fails or cannot determine frames.
+            Optional[int]: Total number of frames, or None if ffprobe fails or cannot determine frames.
         """
         try:
             command = [
