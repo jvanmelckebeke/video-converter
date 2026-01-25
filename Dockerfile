@@ -13,7 +13,8 @@ COPY requirements.txt .
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY video_optimizer/ main.py .
+COPY video_optimizer/ video_optimizer/
+COPY main.py .
 
 # Run the script when the container starts.
 CMD ["python", "main.py"]
