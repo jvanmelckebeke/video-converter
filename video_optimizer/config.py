@@ -47,6 +47,7 @@ class Configuration(BaseSettings):
 
     CHECK_INTERVAL: int = 10  # seconds - how often to check for new files. Adjust as needed
     REVERSE_ORDER: bool = False  # New setting for reverse order processing
+    USE_POLLING: bool = False  # Force polling mode instead of file system watcher
 
     # New setting to control path shortening in logs, default to True
     SHORTEN_FILE_PATHS: bool = True

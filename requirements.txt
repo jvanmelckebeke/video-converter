@@ -1,3 +1,4 @@
 tqdm
 tqdm-loggable
 pydantic_settings
+watchdog
