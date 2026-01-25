@@ -61,6 +61,7 @@ All settings use `OPTIMIZER_` prefix. Key ones:
 | `SOURCE_ROOT` | ./to-convert | Watch directory |
 | `CHECK_INTERVAL` | 10 | Seconds between scans (polling mode) |
 | `USE_POLLING` | false | Force polling mode instead of filesystem watcher |
+| `FORCE_OPTIMIZE` | false | Keep optimized file even if larger than original |
 | `LOG_LEVEL` | INFO | DEBUG, INFO, WARNING, ERROR, CRITICAL |
 | `LOG_FILE` | (none) | If set, also log to this file |
 
