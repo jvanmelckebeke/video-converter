@@ -4,91 +4,68 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Python-based video optimization system that continuously monitors a source directory for video files, processes them using FFmpeg with H.265 encoding, and organizes the results into different directories based on processing outcomes.
-
-## Architecture
-
-The codebase has been refactored from a monolithic `convert.py` into a modular design:
-
-- **main.py**: Entry point that orchestrates the optimization process with progress tracking
-- **video_optimizer/**: Main package containing modular components
-  - **config.py**: Pydantic-based configuration management with environment variable support
-  - **video_processor.py**: FFmpeg processing logic with progress tracking via tqdm
-  - **file_manager.py**: File operations, directory management, and file movement logic
-  - **utils.py**: Utility functions for file path manipulation and video file detection
-
-### Directory Structure
-
-The system organizes files into these directories:
-- `to-convert/`: Source directory (configurable via `OPTIMIZER_SOURCE_ROOT`)
-- `optimized/`: Successfully optimized videos
-- `done/`: Original files that were successfully optimized
-- `errored/`: Files that failed processing
-- `in-progress/`: Temporary files during FFmpeg processing
-- `optimized-bad/`: Optimized files that are larger than originals
-- `optimized-original/`: Original files when optimization resulted in larger files
+Video optimization system that monitors a source directory, converts videos to H.265 using FFmpeg, and organizes results based on processing outcomes. Videos larger than 1080p are automatically downscaled.
 
 ## Commands
 
-### Running the Application
-
-**Local development:**
 ```bash
+# Run locally (requires FFmpeg installed)
 python main.py
-```
 
-**Docker (recommended):**
-```bash
+# Run with Docker (recommended)
 docker-compose up --build
+
+# Install dependencies
+pip install -r requirements.txt
 ```
 
-### Testing Dependencies
-```bash
-python -m pip install -r requirements.txt
+## Architecture
+
+```
+main.py                      # Entry point, orchestrates processing loop with tqdm progress
+video_optimizer/
+├── config.py               # Pydantic settings with OPTIMIZER_ env prefix
+├── video_processor.py      # FFmpeg subprocess handling, frame progress parsing
+├── file_manager.py         # File operations, directory traversal, movement logic
+└── utils.py                # Path shortening, video file detection
 ```
 
-### Configuration
+### Processing Flow
 
-All settings are managed through environment variables with the `OPTIMIZER_` prefix:
+1. `FileManager.collect_video_files()` scans source, excludes processing dirs
+2. `VideoProcessor.process_video()` runs FFmpeg to `in-progress/` temp location
+3. On success: compare sizes → move to `optimized/` + `done/` or `optimized-bad/` + `optimized-original/`
+4. On failure: move original to `errored/`
 
-- `OPTIMIZER_FFMPEG_PRESET`: FFmpeg encoding preset (default: veryslow)
-- `OPTIMIZER_FFMPEG_CRF`: Constant rate factor for quality (default: 26)
-- `OPTIMIZER_SOURCE_ROOT`: Source directory to monitor (default: ./to-convert)
-- `OPTIMIZER_REVERSE_ORDER`: Process files in reverse order (default: false)
-- `OPTIMIZER_SHORTEN_FILE_PATHS`: Enable path shortening in logs (default: true)
-- `OPTIMIZER_CHECK_INTERVAL`: Seconds between directory scans (default: 10)
+### Directory Layout (all configurable via env vars)
 
-## Key Implementation Details
+| Directory | Purpose |
+|-----------|---------|
+| `to-convert/` | Source directory to monitor |
+| `in-progress/` | Temp FFmpeg output (deleted on failure) |
+| `optimized/` | Successfully smaller conversions |
+| `done/` | Originals of successful conversions |
+| `errored/` | Failed conversions (originals) |
+| `optimized-bad/` | Conversions that got larger |
+| `optimized-original/` | Originals when conversion was larger |
 
-### Progress Tracking
-The system uses nested tqdm progress bars:
-- Outer bar: Overall file processing progress
-- Inner bar: Per-file FFmpeg encoding progress with frame counts from ffprobe
+## Configuration
 
-### Error Handling
-Three-tier error management:
-1. FFmpeg errors move original files to `errored/`
-2. Size comparison failures move optimized to `optimized-bad/` and original to `optimized-original/`
-3. Unexpected exceptions are logged and files moved to `errored/`
+All settings use `OPTIMIZER_` prefix. Key ones:
 
-### File Processing Logic
-1. Scan source directory excluding processing directories
-2. Get relative paths and check for skip conditions
-3. Process with FFmpeg to temporary location (`in-progress/`)
-4. Compare file sizes after processing
-5. Move files to appropriate final directories based on results
+| Variable | Default | Notes |
+|----------|---------|-------|
+| `FFMPEG_PRESET` | veryslow | Speed/quality tradeoff |
+| `FFMPEG_CRF` | 26 | Lower = better quality, larger files |
+| `SOURCE_ROOT` | ./to-convert | Watch directory |
+| `CHECK_INTERVAL` | 10 | Seconds between scans |
 
-### Docker Configuration
-The Dockerfile uses Python 3.9-slim with FFmpeg installed. The docker-compose setup includes:
-- Volume mounting for file access
-- Resource limits for memory/CPU
-- User permissions (1000:1000)
-- Logging configuration with size limits
+Additional FFmpeg settings: `FFMPEG_AUDIO_BITRATE` (128k), `FFMPEG_VIDEO_CODEC` (libx265), `FFMPEG_AUDIO_CODEC` (aac), `FFMPEG_MOVFLAGS` (+faststart).
 
-## Development Notes
+## Implementation Notes
 
-- The legacy `convert.py` file remains for reference but should not be modified
-- Configuration uses Pydantic with environment variable validation
-- All file operations go through the FileManager class for consistency
-- FFmpeg progress is parsed using regex on stdout for real-time updates
-- The system continuously monitors for new files until manually stopped
+- **1080p Downscaling**: `VideoProcessor._get_video_resolution()` checks height; videos >1080p get `-vf scale=-2:1080`
+- **Progress Tracking**: FFmpeg stdout parsed with regex `frame=\s*(\d+)` against total from `ffprobe -show_entries stream=nb_frames`
+- **File Movement**: All operations through `FileManager._move_file()` which creates directories and logs
+- **Skip Logic**: `FileManager.check_skip_directory()` prevents reprocessing files already in output directories
+- Legacy `convert.py` exists for reference only

@@ -24,7 +24,12 @@ class Configuration(BaseSettings):
     """
 
     VIDEO_EXTENSIONS: set[str] = {
-        '.mp4', '.avi', '.mkv', '.mov', '.flv', '.wmv', '.mpeg', '.mpg', '.m4v'}
+        # Common formats
+        '.mp4', '.avi', '.mkv', '.mov', '.flv', '.wmv', '.mpeg', '.mpg', '.m4v', '.webm',
+        # Additional formats
+        '.3gp', '.3g2', '.ts', '.mts', '.m2ts', '.vob', '.ogv', '.ogg', '.divx', '.f4v',
+        '.asf', '.rm', '.rmvb', '.dv', '.mxf', '.wtv', '.qt', '.yuv', '.y4m', '.nsv',
+    }
     SOURCE_ROOT: str = './to-convert'
     OUTPUT_ROOT: str = 'optimized'
     ERRORED_ROOT: str = 'errored'
