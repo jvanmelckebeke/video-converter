@@ -214,11 +214,10 @@ class VideoProcessor:
 
             if self.file_manager.compare_file_sizes(input_path, final_output_path):
                 logging.warning(f"Original file '{Utils.shorten_filepath(input_path, self.config.SOURCE_ROOT)}' is smaller than optimized file '{Utils.shorten_filepath(final_output_path, self.config.SOURCE_ROOT)}'. Moving files.")
-                bad_optimized_path = self.file_manager.move_to_optimized_bad(final_output_path, rel_path.replace(".mp4", ".mp4"))  # Move OPTIMIZED to bad
-                original_to_optimized_original_path = self.file_manager.move_to_optimized_original(input_path, rel_path)  # Move ORIGINAL to optimized-original
-                os.remove(final_output_path)  # Remove the larger optimized file in the output directory after moving to bad.
+                self.file_manager.move_to_optimized_bad(final_output_path, rel_path)  # Move OPTIMIZED to bad
+                self.file_manager.move_to_optimized_original(input_path, rel_path)  # Move ORIGINAL to optimized-original
             else:
-                done_path = self.file_manager.move_to_done(input_path, rel_path)  # Move ORIGINAL to done (if optimized is kept)
+                self.file_manager.move_to_done(input_path, rel_path)  # Move ORIGINAL to done (if optimized is kept)
 
             return f"Processed '{input_path}' -> '{final_output_path}'"  # final_output_path is the final optimized location
 
