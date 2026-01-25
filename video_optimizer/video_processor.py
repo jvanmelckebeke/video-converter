@@ -214,8 +214,8 @@ class VideoProcessor:
 
             if self.file_manager.compare_file_sizes(input_path, final_output_path):
                 logging.warning(f"Original file '{Utils.shorten_filepath(input_path, self.config.SOURCE_ROOT)}' is smaller than optimized file '{Utils.shorten_filepath(final_output_path, self.config.SOURCE_ROOT)}'. Moving files.")
-                self.file_manager.move_to_optimized_bad(final_output_path, rel_path)  # Move OPTIMIZED to bad
-                self.file_manager.move_to_optimized_original(input_path, rel_path)  # Move ORIGINAL to optimized-original
+                self.file_manager.move_to_optimized_bad(final_output_path, base + '.mp4')  # Move OPTIMIZED to bad (keep .mp4 extension)
+                self.file_manager.move_to_optimized_original(input_path, rel_path)  # Move ORIGINAL to optimized-original (keep original extension)
             else:
                 self.file_manager.move_to_done(input_path, rel_path)  # Move ORIGINAL to done (if optimized is kept)
 
