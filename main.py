@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import signal
+import threading
 import time
 import logging
 from tqdm_loggable.auto import tqdm
@@ -57,15 +58,45 @@ def process_file(input_path, file_manager, video_processor, config):
     return 0, 0, 0, 0
 
 
+class ProcessingState:
+    """Tracks processing state and totals."""
+
+    def __init__(self):
+        self.processed_files: set = set()
+        self.total_success = 0
+        self.total_error = 0
+        self.total_skipped = 0
+        self.total_size_issue = 0
+
+    def process_one(self, input_path, file_manager, video_processor, config, pbar):
+        """Process a single file and update state."""
+        success, error, skipped, size_issue = process_file(
+            input_path, file_manager, video_processor, config
+        )
+        self.processed_files.add(input_path)
+        self.total_success += success
+        self.total_error += error
+        self.total_skipped += skipped
+        self.total_size_issue += size_issue
+
+        pbar.set_postfix(
+            success=self.total_success, error=self.total_error,
+            skipped=self.total_skipped, size_issue=self.total_size_issue
+        )
+        pbar.update(1)
+
+    def totals(self):
+        """Return totals as tuple."""
+        return self.total_success, self.total_error, self.total_skipped, self.total_size_issue
+
+
 def run_with_watcher(config, file_manager, video_processor, pbar, shutdown_event):
     """Run using file system watcher (inotify/FSEvents)."""
-    processed_files = set()
-    total_success = total_error = total_skipped = total_size_issue = 0
-
-    watcher = FileWatcher(config, processed_files)
+    state = ProcessingState()
+    watcher = FileWatcher(config, state.processed_files)
 
     # Initial scan for existing files
-    existing_files = file_manager.collect_video_files(processed_files=processed_files)
+    existing_files = file_manager.collect_video_files(processed_files=state.processed_files)
     if existing_files:
         logging.info(f"Found {len(existing_files)} existing video files to process.")
         pbar.total = len(existing_files)
@@ -74,21 +105,7 @@ def run_with_watcher(config, file_manager, video_processor, pbar, shutdown_event
         for input_path in existing_files:
             if shutdown_event.is_set():
                 break
-
-            success, error, skipped, size_issue = process_file(
-                input_path, file_manager, video_processor, config
-            )
-            processed_files.add(input_path)
-            total_success += success
-            total_error += error
-            total_skipped += skipped
-            total_size_issue += size_issue
-
-            pbar.set_postfix(
-                success=total_success, error=total_error,
-                skipped=total_skipped, size_issue=total_size_issue
-            )
-            pbar.update(1)
+            state.process_one(input_path, file_manager, video_processor, config, pbar)
 
     # Start watching for new files
     if not watcher.start():
@@ -97,45 +114,29 @@ def run_with_watcher(config, file_manager, video_processor, pbar, shutdown_event
 
     try:
         while not shutdown_event.is_set():
-            # Wait for new files with timeout to check shutdown
             input_path = watcher.get_file(timeout=1.0)
 
             if input_path is None:
                 continue
 
-            if input_path in processed_files:
+            if input_path in state.processed_files:
                 continue
 
             pbar.total += 1
             pbar.refresh()
-
-            success, error, skipped, size_issue = process_file(
-                input_path, file_manager, video_processor, config
-            )
-            processed_files.add(input_path)
-            total_success += success
-            total_error += error
-            total_skipped += skipped
-            total_size_issue += size_issue
-
-            pbar.set_postfix(
-                success=total_success, error=total_error,
-                skipped=total_skipped, size_issue=total_size_issue
-            )
-            pbar.update(1)
+            state.process_one(input_path, file_manager, video_processor, config, pbar)
     finally:
         watcher.stop()
 
-    return total_success, total_error, total_skipped, total_size_issue
+    return state.totals()
 
 
 def run_with_polling(config, file_manager, video_processor, pbar, shutdown_event):
     """Run using polling mode (original behavior)."""
-    processed_files = set()
-    total_success = total_error = total_skipped = total_size_issue = 0
+    state = ProcessingState()
 
     while not shutdown_event.is_set():
-        video_files = file_manager.collect_video_files(processed_files=processed_files)
+        video_files = file_manager.collect_video_files(processed_files=state.processed_files)
 
         if not video_files:
             logging.info(
@@ -155,23 +156,9 @@ def run_with_polling(config, file_manager, video_processor, pbar, shutdown_event
         for input_path in video_files:
             if shutdown_event.is_set():
                 break
+            state.process_one(input_path, file_manager, video_processor, config, pbar)
 
-            success, error, skipped, size_issue = process_file(
-                input_path, file_manager, video_processor, config
-            )
-            processed_files.add(input_path)
-            total_success += success
-            total_error += error
-            total_skipped += skipped
-            total_size_issue += size_issue
-
-            pbar.set_postfix(
-                success=total_success, error=total_error,
-                skipped=total_skipped, size_issue=total_size_issue
-            )
-            pbar.update(1)
-
-    return total_success, total_error, total_skipped, total_size_issue
+    return state.totals()
 
 
 def main():
@@ -187,7 +174,7 @@ def main():
     logging.info(f"Processing files in {'reverse' if config.REVERSE_ORDER else 'normal'} order.")
 
     # Setup graceful shutdown
-    shutdown_event = __import__('threading').Event()
+    shutdown_event = threading.Event()
 
     def signal_handler(_signum, _frame):
         logging.info("Received shutdown signal, finishing current file...")

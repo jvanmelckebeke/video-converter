@@ -1,5 +1,6 @@
 """File system watcher for detecting new video files."""
 import logging
+import os
 import queue
 from typing import Optional, Set
 
@@ -36,9 +37,10 @@ class VideoFileHandler(FileSystemEventHandler):
         if not Utils.is_video_file(path, self.config):
             return False
 
-        # Skip if in an output directory
+        # Skip if in an output directory (check path components, not substring)
+        path_parts = os.path.normpath(path).split(os.sep)
         for skip_dir in self._skip_dirs:
-            if skip_dir in path:
+            if skip_dir in path_parts:
                 return False
 
         return True
@@ -101,12 +103,3 @@ class FileWatcher:
             return self.file_queue.get(timeout=timeout)
         except queue.Empty:
             return None
-
-    def has_files(self) -> bool:
-        """Check if there are files waiting in the queue."""
-        return not self.file_queue.empty()
-
-    @property
-    def is_running(self) -> bool:
-        """Check if the watcher is running."""
-        return self._running
