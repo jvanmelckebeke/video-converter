@@ -213,12 +213,18 @@ class VideoProcessor:
             # Move the TEMP optimized file to the FINAL optimized output path
             os.rename(temp_output_path, final_output_path)  # Optimized file moved to final output
 
-            if self.file_manager.compare_file_sizes(input_path, final_output_path):
+            original_smaller = self.file_manager.compare_file_sizes(input_path, final_output_path)
+
+            if original_smaller and not self.config.FORCE_OPTIMIZE:
+                # Original is smaller and we're not forcing optimization
                 logging.warning(f"Original file '{Utils.shorten_filepath(input_path, self.config.SOURCE_ROOT, self.config.SHORTEN_FILE_PATHS)}' is smaller than optimized file '{Utils.shorten_filepath(final_output_path, self.config.SOURCE_ROOT, self.config.SHORTEN_FILE_PATHS)}'. Moving files.")
                 self.file_manager.move_to_optimized_bad(final_output_path, base + '.mp4')  # Move OPTIMIZED to bad (keep .mp4 extension)
                 self.file_manager.move_to_optimized_original(input_path, rel_path)  # Move ORIGINAL to optimized-original (keep original extension)
+                return f"Processed '{input_path}' -> kept original (smaller). Original file is smaller than optimized."
             else:
-                self.file_manager.move_to_done(input_path, rel_path)  # Move ORIGINAL to done (if optimized is kept)
+                if original_smaller and self.config.FORCE_OPTIMIZE:
+                    logging.info(f"FORCE_OPTIMIZE: Keeping optimized file even though original is smaller for '{Utils.shorten_filepath(input_path, self.config.SOURCE_ROOT, self.config.SHORTEN_FILE_PATHS)}'")
+                self.file_manager.move_to_done(input_path, rel_path)  # Move ORIGINAL to done
 
             return f"Processed '{input_path}' -> '{final_output_path}'"  # final_output_path is the final optimized location
 
