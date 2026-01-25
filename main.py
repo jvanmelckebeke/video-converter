@@ -10,8 +10,20 @@ from video_optimizer.file_manager import FileManager
 from video_optimizer.video_processor import VideoProcessor
 from video_optimizer.file_watcher import FileWatcher
 
-logging.basicConfig(level=logging.INFO,
-                    format='%(asctime)s - %(levelname)s - %(message)s')
+
+def setup_logging(config: Configuration) -> None:
+    """Configure logging based on environment variables."""
+    level = getattr(logging, config.LOG_LEVEL.upper(), logging.INFO)
+
+    handlers: list[logging.Handler] = [logging.StreamHandler()]
+    if config.LOG_FILE:
+        handlers.append(logging.FileHandler(config.LOG_FILE))
+
+    logging.basicConfig(
+        level=level,
+        format=config.LOG_FORMAT,
+        handlers=handlers,
+    )
 
 
 def process_file(input_path, file_manager, video_processor, config):
@@ -164,9 +176,10 @@ def run_with_polling(config, file_manager, video_processor, pbar, shutdown_event
 
 def main():
     """Main function to orchestrate video optimization."""
-    logging.info("Starting video optimization process.")
-
     config = Configuration()
+    setup_logging(config)
+
+    logging.info("Starting video optimization process.")
     file_manager = FileManager(config)
     video_processor = VideoProcessor(config, file_manager)
 

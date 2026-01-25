@@ -1,3 +1,5 @@
+from typing import Optional
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -51,6 +53,11 @@ class Configuration(BaseSettings):
 
     # New setting to control path shortening in logs, default to True
     SHORTEN_FILE_PATHS: bool = True
+
+    # Logging configuration
+    LOG_LEVEL: str = "INFO"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+    LOG_FORMAT: str = "%(asctime)s - %(levelname)s - %(message)s"
+    LOG_FILE: Optional[str] = None  # If set, also log to this file
 
     # Prefix for environment variables
     model_config = SettingsConfigDict(env_prefix='OPTIMIZER_')
